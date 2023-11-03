@@ -1,0 +1,84 @@
+org: rudhraio
+app: trihox-email-service
+service: trihox-email-service
+frameworkVersion: "3"
+
+custom:
+  tableName: "users-table-${sls:stage}"
+  emailsTableName: "emails-statics"
+
+constructs:
+  jobs:
+    type: queue
+    worker:
+      handler: ./src/consumer.handler
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [UsersTable, Arn]
+            - Fn::GetAtt: [EmailsTable, Arn]
+        - Effect: Allow
+          Action:
+            - ses:ListIdentities
+            - ses:SendEmail
+            - ses:SendRawEmail
+            - ses:SendTemplatedEmail
+            - ses:SendBulkTemplatedEmail
+            - ses:ListTemplates
+            - ses:ListVerifiedEmailAddresses
+            - ses:GetTemplate
+            - ses:GetIdentityVerificationAttributes
+          Resource: "*"
+  environment:
+    USERS_TABLE: ${self:custom.tableName}
+    EMAILS_TABLE: ${self:custom.emailsTableName}
+    TOKEN: "W9StP44VS2cuwKfYbRgmCQbzvFPEp9TU"
+
+functions:
+  api:
+    handler: index.handler
+    events:
+      - httpApi: "*"
+    environment:
+      QUEUE_URL: ${construct:jobs.queueUrl}
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.tableName}
+    EmailsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: messageId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: messageId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.emailsTableName}
+
+plugins:
+  - serverless-lift

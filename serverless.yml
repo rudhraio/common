@@ -6,6 +6,7 @@ frameworkVersion: "3"
 custom:
   tableName: "users-table-${sls:stage}"
   emailsTableName: "emails-statics"
+  filesTableName: "files-data"
 
 constructs:
   jobs:
@@ -30,6 +31,7 @@ provider:
           Resource:
             - Fn::GetAtt: [UsersTable, Arn]
             - Fn::GetAtt: [EmailsTable, Arn]
+            - Fn::GetAtt: [FilesTable, Arn]
         - Effect: Allow
           Action:
             - ses:ListIdentities
@@ -42,9 +44,14 @@ provider:
             - ses:GetTemplate
             - ses:GetIdentityVerificationAttributes
           Resource: "*"
+        - Effect: Allow
+          Action:
+            - s3:*
+          Resource: "*"
   environment:
     USERS_TABLE: ${self:custom.tableName}
     EMAILS_TABLE: ${self:custom.emailsTableName}
+    FILES_TABLE: ${self:custom.filesTableName}
     TOKEN: "W9StP44VS2cuwKfYbRgmCQbzvFPEp9TU"
 
 functions:
@@ -79,6 +86,17 @@ resources:
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:custom.emailsTableName}
+    FilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: fileId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: fileId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.filesTableName}
 
 plugins:
   - serverless-lift
